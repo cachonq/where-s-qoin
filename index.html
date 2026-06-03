@@ -3,17 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Car Loading Progress</title>
+  <title>Where's Qoin?</title>
   <style>
     :root {
       /*
-        Change the loading time here.
-        Examples:
-        --duration: 5s;
-        --duration: 12s;
-        --duration: 1.5s;
+        Change the total trip duration here.
+        This is the shared duration everyone will see after Start is pressed.
       */
-      --duration: 10s;
+      --duration-seconds: 600;
 
       --sky: #bfe9ff;
       --grass: #7bd86f;
@@ -217,45 +214,7 @@
       width: 130px;
       height: 72px;
       z-index: 5;
-      animation: drive var(--duration) forwards;
-      animation-timing-function: linear;
-    }
-
-    /*
-      This gives the car variance instead of a steady movement.
-      It accelerates, pauses slightly, surges forward, slows down, then pulls in.
-    */
-    @keyframes drive {
-      0% {
-        transform: translateX(0) translateY(0) rotate(0deg);
-      }
-      8% {
-        transform: translateX(calc(var(--travel-distance) * 0.04)) translateY(-1px) rotate(-0.4deg);
-      }
-      18% {
-        transform: translateX(calc(var(--travel-distance) * 0.10)) translateY(1px) rotate(0.5deg);
-      }
-      28% {
-        transform: translateX(calc(var(--travel-distance) * 0.28)) translateY(-2px) rotate(-0.3deg);
-      }
-      42% {
-        transform: translateX(calc(var(--travel-distance) * 0.38)) translateY(1px) rotate(0.4deg);
-      }
-      55% {
-        transform: translateX(calc(var(--travel-distance) * 0.61)) translateY(-1px) rotate(-0.4deg);
-      }
-      68% {
-        transform: translateX(calc(var(--travel-distance) * 0.70)) translateY(2px) rotate(0.6deg);
-      }
-      82% {
-        transform: translateX(calc(var(--travel-distance) * 0.88)) translateY(-1px) rotate(-0.2deg);
-      }
-      94% {
-        transform: translateX(calc(var(--travel-distance) * 0.96)) translateY(1px) rotate(0.2deg);
-      }
-      100% {
-        transform: translateX(var(--travel-distance)) translateY(0) rotate(0deg);
-      }
+      transform: translateX(0);
     }
 
     .car {
@@ -337,24 +296,6 @@
       width: 0;
       background: linear-gradient(90deg, #4facfe, #00f2fe);
       border-radius: inherit;
-      animation: fill var(--duration) forwards;
-      animation-timing-function: linear;
-    }
-
-    /*
-      The progress bar also moves unevenly, matching the car's pacing.
-    */
-    @keyframes fill {
-      0% { width: 0; }
-      8% { width: 4%; }
-      18% { width: 10%; }
-      28% { width: 28%; }
-      42% { width: 38%; }
-      55% { width: 61%; }
-      68% { width: 70%; }
-      82% { width: 88%; }
-      94% { width: 96%; }
-      100% { width: 100%; }
     }
 
     @keyframes carBounce {
@@ -376,6 +317,24 @@
       font-weight: bold;
       min-height: 24px;
       margin-top: 10px;
+    }
+
+    .start-button {
+      margin-top: 18px;
+      padding: 14px 28px;
+      border: none;
+      border-radius: 999px;
+      background: #222;
+      color: #fff;
+      cursor: pointer;
+      font-size: 1.1rem;
+      font-weight: bold;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.2);
+      display: none;
+    }
+
+    .start-button:hover {
+      background: #444;
     }
 
     @media (max-width: 650px) {
@@ -403,7 +362,7 @@
 <body>
   <main class="page">
     <h1>Where's Qoin?</h1>
-    <p></p>
+    <p>The car moves toward the house like a shared loading bar.</p>
 
     <section class="scene" id="scene">
       <div class="sun"></div>
@@ -432,49 +391,184 @@
       <div class="progress-fill" id="progressFill"></div>
     </div>
 
-    <div class="status" id="status">Progress bar..</div>
+    <div class="status" id="status">Waiting to start...</div>
+    <button class="start-button" id="startButton">Start</button>
   </main>
 
-  <script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import {
+      getDatabase,
+      ref,
+      onValue,
+      runTransaction
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAS89nLEywPcaAaquVVYD5Y7e3-iTV2uPo",
+      authDomain: "where-s-qoin.firebaseapp.com",
+      databaseURL: "https://where-s-qoin-default-rtdb.firebaseio.com",
+      projectId: "where-s-qoin",
+      storageBucket: "where-s-qoin.firebasestorage.app",
+      messagingSenderId: "770113955571",
+      appId: "1:770113955571:web:2c6706ce3798dca514b986"
+    };
+
     /*
-      Set your loading duration here.
-      This is intentionally not displayed on the page.
+      Change this number to control the shared loading duration.
+      600 = 10 minutes
+      3600 = 1 hour
+      86400 = 24 hours
     */
-    const LOADING_DURATION_SECONDS = 1800;
+    const LOADING_DURATION_SECONDS = 600;
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const progressRef = ref(db, "qoinProgress");
+    const offsetRef = ref(db, ".info/serverTimeOffset");
 
     const scene = document.getElementById("scene");
     const house = document.getElementById("house");
     const car = document.getElementById("carWrap");
     const fill = document.getElementById("progressFill");
     const statusText = document.getElementById("status");
+    const startButton = document.getElementById("startButton");
 
-    function setupAnimation() {
-      document.documentElement.style.setProperty("--duration", `${LOADING_DURATION_SECONDS}s`);
+    let serverTimeOffset = 0;
+    let startedAt = null;
+    let animationFrameId = null;
 
+    onValue(offsetRef, (snapshot) => {
+      serverTimeOffset = snapshot.val() || 0;
+    });
+
+    function serverNow() {
+      return Date.now() + serverTimeOffset;
+    }
+
+    function getTravelDistance() {
       const sceneRect = scene.getBoundingClientRect();
       const houseRect = house.getBoundingClientRect();
       const carRect = car.getBoundingClientRect();
-
-      /*
-        Travel distance is calculated so the car stops just before the house.
-        Increase or decrease the 24 to change how close it gets.
-      */
       const stopGap = 24;
-      const travelDistance = houseRect.left - sceneRect.left - carRect.width - stopGap;
 
-      car.style.setProperty("--travel-distance", `${travelDistance}px`);
-
-      statusText.textContent = "Progress bar...";
-
-      setTimeout(() => {
-        statusText.textContent = "Arrived!";
-      }, LOADING_DURATION_SECONDS * 1000);
+      return Math.max(
+        0,
+        houseRect.left - sceneRect.left - carRect.width - stopGap
+      );
     }
 
-    setupAnimation();
+    /*
+      This creates uneven movement instead of a perfectly steady glide.
+      The progress value still starts at 0 and ends at 1, but the car speeds up,
+      slows down, and has little surges along the way.
+    */
+    function variedProgress(t) {
+      const points = [
+        [0.00, 0.00],
+        [0.08, 0.04],
+        [0.18, 0.10],
+        [0.28, 0.28],
+        [0.42, 0.38],
+        [0.55, 0.61],
+        [0.68, 0.70],
+        [0.82, 0.88],
+        [0.94, 0.96],
+        [1.00, 1.00]
+      ];
+
+      for (let i = 0; i < points.length - 1; i++) {
+        const [timeA, valueA] = points[i];
+        const [timeB, valueB] = points[i + 1];
+
+        if (t >= timeA && t <= timeB) {
+          const localT = (t - timeA) / (timeB - timeA);
+          const smoothed = localT * localT * (3 - 2 * localT);
+          return valueA + (valueB - valueA) * smoothed;
+        }
+      }
+
+      return 1;
+    }
+
+    function updateVisuals(rawProgress) {
+      const clamped = Math.min(Math.max(rawProgress, 0), 1);
+      const visualProgress = variedProgress(clamped);
+      const travelDistance = getTravelDistance();
+
+      const x = travelDistance * visualProgress;
+      const bump = Math.sin(visualProgress * Math.PI * 18) * 1.5;
+      const tilt = Math.sin(visualProgress * Math.PI * 10) * 0.5;
+
+      car.style.transform = `translateX(${x}px) translateY(${bump}px) rotate(${tilt}deg)`;
+      fill.style.width = `${visualProgress * 100}%`;
+    }
+
+    function startSharedAnimation() {
+      cancelAnimationFrame(animationFrameId);
+
+      function frame() {
+        if (!startedAt) return;
+
+        const elapsedSeconds = (serverNow() - startedAt) / 1000;
+        const rawProgress = elapsedSeconds / LOADING_DURATION_SECONDS;
+
+        updateVisuals(rawProgress);
+
+        if (rawProgress >= 1) {
+          statusText.textContent = "Arrived!";
+          updateVisuals(1);
+          return;
+        }
+
+        const remainingSeconds = Math.ceil(LOADING_DURATION_SECONDS - elapsedSeconds);
+        statusText.textContent = `In progress... ${remainingSeconds}s remaining`;
+
+        animationFrameId = requestAnimationFrame(frame);
+      }
+
+      frame();
+    }
+
+    startButton.addEventListener("click", async () => {
+      startButton.disabled = true;
+      startButton.textContent = "Starting...";
+
+      await runTransaction(progressRef, (currentValue) => {
+        if (currentValue && currentValue.startedAt) {
+          return currentValue;
+        }
+
+        return {
+          startedAt: serverNow()
+        };
+      });
+    });
+
+    onValue(progressRef, (snapshot) => {
+      const data = snapshot.val();
+
+      if (!data || !data.startedAt) {
+        startedAt = null;
+        startButton.style.display = "inline-block";
+        startButton.disabled = false;
+        startButton.textContent = "Start";
+        statusText.textContent = "Waiting to start...";
+        updateVisuals(0);
+        return;
+      }
+
+      startedAt = data.startedAt;
+      startButton.style.display = "none";
+      startSharedAnimation();
+    });
 
     window.addEventListener("resize", () => {
-      location.reload();
+      if (startedAt) {
+        const elapsedSeconds = (serverNow() - startedAt) / 1000;
+        updateVisuals(elapsedSeconds / LOADING_DURATION_SECONDS);
+      }
     });
   </script>
 </body>
