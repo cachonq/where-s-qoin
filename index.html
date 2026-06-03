@@ -522,8 +522,16 @@
           return;
         }
 
-        const remainingSeconds = Math.ceil(LOADING_DURATION_SECONDS - elapsedSeconds);
-        statusText.textContent = `In progress... ${remainingSeconds}s remaining`;
+        const etaTime = new Date(startedAt + LOADING_DURATION_SECONDS * 1000);
+
+        const etaFormatted = etaTime.toLocaleTimeString("en-US", {
+          timeZone: "America/New_York",
+          hour: "numeric",
+          minute: "2-digit",
+          timeZoneName: "short"
+        });
+
+        statusText.textContent = `ETA: ${etaFormatted}`;
 
         animationFrameId = requestAnimationFrame(frame);
       }
