@@ -6,12 +6,6 @@
   <title>Where's Qoin?</title>
   <style>
     :root {
-      /*
-        Change the total trip duration here.
-        This is the shared duration everyone will see after Start is pressed.
-      */
-      --duration-seconds: 600;
-
       --sky: #bfe9ff;
       --grass: #7bd86f;
       --road: #4a4a4a;
@@ -57,8 +51,7 @@
       height: 360px;
       overflow: hidden;
       border-radius: 28px;
-      background:
-        linear-gradient(var(--sky) 0 62%, var(--grass) 62% 100%);
+      background: linear-gradient(var(--sky) 0 62%, var(--grass) 62% 100%);
       box-shadow: 0 20px 45px rgba(0, 0, 0, 0.14);
       border: 4px solid #ffffff;
     }
@@ -299,18 +292,12 @@
     }
 
     @keyframes carBounce {
-      from {
-        transform: translateY(0);
-      }
-      to {
-        transform: translateY(-3px);
-      }
+      from { transform: translateY(0); }
+      to { transform: translateY(-3px); }
     }
 
     @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
+      to { transform: rotate(360deg); }
     }
 
     .status {
@@ -319,22 +306,62 @@
       margin-top: 10px;
     }
 
-    .start-button {
+    .admin-login,
+    .admin-panel {
       margin-top: 18px;
-      padding: 14px 28px;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .admin-login {
+      display: flex;
+    }
+
+    .admin-login input {
+      padding: 11px 14px;
+      border: 1px solid #ccc;
+      border-radius: 999px;
+      font-size: 1rem;
+      min-width: 220px;
+    }
+
+    .admin-button {
+      padding: 12px 20px;
       border: none;
       border-radius: 999px;
       background: #222;
       color: #fff;
       cursor: pointer;
-      font-size: 1.1rem;
+      font-size: 1rem;
       font-weight: bold;
-      box-shadow: 0 8px 18px rgba(0,0,0,0.2);
-      display: none;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.16);
     }
 
-    .start-button:hover {
+    .admin-button:hover {
       background: #444;
+    }
+
+    .admin-button.secondary {
+      background: #555;
+    }
+
+    .admin-button.danger {
+      background: #b3261e;
+    }
+
+    .admin-button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .admin-message {
+      width: 100%;
+      font-size: 0.9rem;
+      color: #666;
+      min-height: 20px;
     }
 
     @media (max-width: 650px) {
@@ -392,7 +419,21 @@
     </div>
 
     <div class="status" id="status">Waiting to start...</div>
-    <button class="start-button" id="startButton">Start</button>
+
+    <div class="admin-login" id="adminLogin">
+      <input id="adminEmail" type="email" placeholder="Admin email" autocomplete="username" />
+      <input id="adminPassword" type="password" placeholder="Password" autocomplete="current-password" />
+      <button class="admin-button" id="loginButton">Admin Login</button>
+      <div class="admin-message" id="adminMessage"></div>
+    </div>
+
+    <div class="admin-panel" id="adminPanel">
+      <button class="admin-button" id="startButton">Start</button>
+      <button class="admin-button secondary" id="finishButton">Finish</button>
+      <button class="admin-button danger" id="resetButton">Reset</button>
+      <button class="admin-button secondary" id="logoutButton">Logout</button>
+      <div class="admin-message" id="adminStatus"></div>
+    </div>
   </main>
 
   <script type="module">
@@ -401,8 +442,17 @@
       getDatabase,
       ref,
       onValue,
-      runTransaction
+      runTransaction,
+      set,
+      remove
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+
+    import {
+      getAuth,
+      signInWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAS89nLEywPcaAaquVVYD5Y7e3-iTV2uPo",
@@ -421,9 +471,11 @@
       86400 = 24 hours
     */
     const LOADING_DURATION_SECONDS = 600;
+    const ADMIN_UID = "SDfoy6k5vfMTVrjOXL08JWLCPmn1";
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
+    const auth = getAuth(app);
 
     const progressRef = ref(db, "qoinProgress");
     const offsetRef = ref(db, ".info/serverTimeOffset");
@@ -433,7 +485,18 @@
     const car = document.getElementById("carWrap");
     const fill = document.getElementById("progressFill");
     const statusText = document.getElementById("status");
+
+    const adminLogin = document.getElementById("adminLogin");
+    const adminPanel = document.getElementById("adminPanel");
+    const adminEmail = document.getElementById("adminEmail");
+    const adminPassword = document.getElementById("adminPassword");
+    const loginButton = document.getElementById("loginButton");
+    const logoutButton = document.getElementById("logoutButton");
     const startButton = document.getElementById("startButton");
+    const finishButton = document.getElementById("finishButton");
+    const resetButton = document.getElementById("resetButton");
+    const adminMessage = document.getElementById("adminMessage");
+    const adminStatus = document.getElementById("adminStatus");
 
     let serverTimeOffset = 0;
     let startedAt = null;
@@ -459,11 +522,6 @@
       );
     }
 
-    /*
-      This creates uneven movement instead of a perfectly steady glide.
-      The progress value still starts at 0 and ends at 1, but the car speeds up,
-      slows down, and has little surges along the way.
-    */
     function variedProgress(t) {
       const points = [
         [0.00, 0.00],
@@ -505,6 +563,17 @@
       fill.style.width = `${visualProgress * 100}%`;
     }
 
+    function formatEta(startTime) {
+      const etaTime = new Date(startTime + LOADING_DURATION_SECONDS * 1000);
+
+      return etaTime.toLocaleTimeString("en-US", {
+        timeZone: "America/New_York",
+        hour: "numeric",
+        minute: "2-digit",
+        timeZoneName: "short"
+      });
+    }
+
     function startSharedAnimation() {
       cancelAnimationFrame(animationFrameId);
 
@@ -522,36 +591,94 @@
           return;
         }
 
-        const etaTime = new Date(startedAt + LOADING_DURATION_SECONDS * 1000);
-
-        const etaFormatted = etaTime.toLocaleTimeString("en-US", {
-          timeZone: "America/New_York",
-          hour: "numeric",
-          minute: "2-digit",
-          timeZoneName: "short"
-        });
-
-        statusText.textContent = `ETA: ${etaFormatted}`;
-
+        statusText.textContent = `ETA: ${formatEta(startedAt)}`;
         animationFrameId = requestAnimationFrame(frame);
       }
 
       frame();
     }
 
+    loginButton.addEventListener("click", async () => {
+      adminMessage.textContent = "";
+      loginButton.disabled = true;
+      loginButton.textContent = "Logging in...";
+
+      try {
+        await signInWithEmailAndPassword(auth, adminEmail.value, adminPassword.value);
+        adminPassword.value = "";
+      } catch (error) {
+        adminMessage.textContent = "Login failed. Check the email/password.";
+      } finally {
+        loginButton.disabled = false;
+        loginButton.textContent = "Admin Login";
+      }
+    });
+
+    logoutButton.addEventListener("click", async () => {
+      await signOut(auth);
+    });
+
     startButton.addEventListener("click", async () => {
+      adminStatus.textContent = "";
       startButton.disabled = true;
       startButton.textContent = "Starting...";
 
-      await runTransaction(progressRef, (currentValue) => {
-        if (currentValue && currentValue.startedAt) {
-          return currentValue;
-        }
+      try {
+        await runTransaction(progressRef, (currentValue) => {
+          if (currentValue && currentValue.startedAt) {
+            return currentValue;
+          }
 
-        return {
-          startedAt: serverNow()
-        };
-      });
+          return {
+            startedAt: serverNow(),
+            finishedAt: null
+          };
+        });
+        adminStatus.textContent = "Started.";
+      } catch (error) {
+        adminStatus.textContent = "Start failed. Check Firebase rules.";
+      } finally {
+        startButton.disabled = false;
+        startButton.textContent = "Start";
+      }
+    });
+
+    finishButton.addEventListener("click", async () => {
+      adminStatus.textContent = "";
+
+      try {
+        await set(progressRef, {
+          startedAt: serverNow() - LOADING_DURATION_SECONDS * 1000,
+          finishedAt: serverNow()
+        });
+        adminStatus.textContent = "Finished.";
+      } catch (error) {
+        adminStatus.textContent = "Finish failed. Check Firebase rules.";
+      }
+    });
+
+    resetButton.addEventListener("click", async () => {
+      adminStatus.textContent = "";
+
+      try {
+        await remove(progressRef);
+        adminStatus.textContent = "Reset.";
+      } catch (error) {
+        adminStatus.textContent = "Reset failed. Check Firebase rules.";
+      }
+    });
+
+    onAuthStateChanged(auth, (user) => {
+      const isAdmin = user && user.uid === ADMIN_UID;
+
+      adminLogin.style.display = isAdmin ? "none" : "flex";
+      adminPanel.style.display = isAdmin ? "flex" : "none";
+
+      if (user && !isAdmin) {
+        adminMessage.textContent = "You are signed in, but this account is not an admin.";
+      } else {
+        adminMessage.textContent = "";
+      }
     });
 
     onValue(progressRef, (snapshot) => {
@@ -559,16 +686,12 @@
 
       if (!data || !data.startedAt) {
         startedAt = null;
-        startButton.style.display = "inline-block";
-        startButton.disabled = false;
-        startButton.textContent = "Start";
         statusText.textContent = "Waiting to start...";
         updateVisuals(0);
         return;
       }
 
       startedAt = data.startedAt;
-      startButton.style.display = "none";
       startSharedAnimation();
     });
 
