@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Car Loading Progress</title>
+  <style>
+    :root {
+      /*
+        Change the loading time here.
+        Examples:
+        --duration: 5s;
+        --duration: 12s;
+        --duration: 1.5s;
+      */
+      --duration: 10s;
+
+      --sky: #bfe9ff;
+      --grass: #7bd86f;
+      --road: #4a4a4a;
+      --road-line: #f8f8f8;
+      --car: #ff4d4d;
+      --car-dark: #c92f2f;
+      --house: #ffd166;
+      --roof: #ef476f;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(#eef8ff, #ffffff);
+      color: #222;
+    }
+
+    .page {
+      width: min(1000px, 94vw);
+      text-align: center;
+    }
+
+    h1 {
+      margin-bottom: 8px;
+      font-size: clamp(1.8rem, 4vw, 3rem);
+    }
+
+    p {
+      margin-top: 0;
+      color: #555;
+    }
+
+    .scene {
+      position: relative;
+      height: 360px;
+      overflow: hidden;
+      border-radius: 28px;
+      background:
+        linear-gradient(var(--sky) 0 62%, var(--grass) 62% 100%);
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.14);
+      border: 4px solid #ffffff;
+    }
+
+    .sun {
+      position: absolute;
+      top: 35px;
+      left: 50px;
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: #ffd166;
+      box-shadow: 0 0 35px rgba(255, 209, 102, 0.8);
+    }
+
+    .cloud {
+      position: absolute;
+      top: 60px;
+      width: 110px;
+      height: 38px;
+      border-radius: 999px;
+      background: #fff;
+      opacity: 0.9;
+    }
+
+    .cloud::before,
+    .cloud::after {
+      content: "";
+      position: absolute;
+      background: #fff;
+      border-radius: 50%;
+    }
+
+    .cloud::before {
+      width: 48px;
+      height: 48px;
+      left: 18px;
+      top: -22px;
+    }
+
+    .cloud::after {
+      width: 62px;
+      height: 62px;
+      right: 18px;
+      top: -32px;
+    }
+
+    .cloud.one {
+      right: 250px;
+    }
+
+    .cloud.two {
+      top: 100px;
+      right: 90px;
+      transform: scale(0.75);
+      opacity: 0.75;
+    }
+
+    .road {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 32px;
+      height: 96px;
+      background: var(--road);
+      border-top: 7px solid #353535;
+      border-bottom: 7px solid #353535;
+    }
+
+    .road::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 42px;
+      height: 8px;
+      background: repeating-linear-gradient(
+        90deg,
+        var(--road-line) 0 55px,
+        transparent 55px 100px
+      );
+      opacity: 0.9;
+    }
+
+    .house {
+      position: absolute;
+      right: 65px;
+      bottom: 125px;
+      width: 150px;
+      height: 115px;
+      background: var(--house);
+      border: 5px solid #8d6e3f;
+      border-bottom: none;
+      border-radius: 8px 8px 0 0;
+      z-index: 4;
+    }
+
+    .house::before {
+      content: "";
+      position: absolute;
+      left: -20px;
+      top: -75px;
+      width: 0;
+      height: 0;
+      border-left: 93px solid transparent;
+      border-right: 93px solid transparent;
+      border-bottom: 78px solid var(--roof);
+      filter: drop-shadow(0 4px 0 #9c2544);
+    }
+
+    .door {
+      position: absolute;
+      bottom: 0;
+      left: 58px;
+      width: 38px;
+      height: 62px;
+      background: #7b4f2a;
+      border-radius: 8px 8px 0 0;
+    }
+
+    .door::after {
+      content: "";
+      position: absolute;
+      right: 7px;
+      top: 32px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #ffd166;
+    }
+
+    .window {
+      position: absolute;
+      top: 28px;
+      width: 34px;
+      height: 30px;
+      background: #85d7ff;
+      border: 4px solid #fff;
+    }
+
+    .window.left {
+      left: 22px;
+    }
+
+    .window.right {
+      right: 22px;
+    }
+
+    .car-wrap {
+      position: absolute;
+      left: 30px;
+      bottom: 94px;
+      width: 130px;
+      height: 72px;
+      z-index: 5;
+      animation: drive var(--duration) forwards;
+      animation-timing-function: linear;
+    }
+
+    /*
+      This gives the car variance instead of a steady movement.
+      It accelerates, pauses slightly, surges forward, slows down, then pulls in.
+    */
+    @keyframes drive {
+      0% {
+        transform: translateX(0) translateY(0) rotate(0deg);
+      }
+      8% {
+        transform: translateX(calc(var(--travel-distance) * 0.04)) translateY(-1px) rotate(-0.4deg);
+      }
+      18% {
+        transform: translateX(calc(var(--travel-distance) * 0.10)) translateY(1px) rotate(0.5deg);
+      }
+      28% {
+        transform: translateX(calc(var(--travel-distance) * 0.28)) translateY(-2px) rotate(-0.3deg);
+      }
+      42% {
+        transform: translateX(calc(var(--travel-distance) * 0.38)) translateY(1px) rotate(0.4deg);
+      }
+      55% {
+        transform: translateX(calc(var(--travel-distance) * 0.61)) translateY(-1px) rotate(-0.4deg);
+      }
+      68% {
+        transform: translateX(calc(var(--travel-distance) * 0.70)) translateY(2px) rotate(0.6deg);
+      }
+      82% {
+        transform: translateX(calc(var(--travel-distance) * 0.88)) translateY(-1px) rotate(-0.2deg);
+      }
+      94% {
+        transform: translateX(calc(var(--travel-distance) * 0.96)) translateY(1px) rotate(0.2deg);
+      }
+      100% {
+        transform: translateX(var(--travel-distance)) translateY(0) rotate(0deg);
+      }
+    }
+
+    .car {
+      position: absolute;
+      bottom: 12px;
+      left: 0;
+      width: 130px;
+      height: 45px;
+      background: var(--car);
+      border-radius: 18px 28px 12px 12px;
+      box-shadow: inset 0 -10px 0 var(--car-dark);
+      animation: carBounce 0.55s ease-in-out infinite alternate;
+    }
+
+    .car::before {
+      content: "";
+      position: absolute;
+      left: 28px;
+      top: -26px;
+      width: 62px;
+      height: 35px;
+      background: var(--car);
+      border-radius: 24px 24px 0 0;
+    }
+
+    .windshield {
+      position: absolute;
+      left: 42px;
+      top: -18px;
+      width: 22px;
+      height: 22px;
+      background: #bfe9ff;
+      border-radius: 10px 2px 2px 2px;
+      z-index: 2;
+    }
+
+    .window-car {
+      position: absolute;
+      left: 68px;
+      top: -18px;
+      width: 24px;
+      height: 22px;
+      background: #bfe9ff;
+      border-radius: 2px 10px 2px 2px;
+      z-index: 2;
+    }
+
+    .wheel {
+      position: absolute;
+      bottom: -8px;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #202020;
+      border: 6px solid #777;
+      animation: spin 0.7s linear infinite;
+    }
+
+    .wheel.front {
+      right: 18px;
+    }
+
+    .wheel.back {
+      left: 18px;
+    }
+
+    .progress-shell {
+      margin: 24px auto 12px;
+      width: min(720px, 92vw);
+      height: 24px;
+      background: #e6e6e6;
+      border-radius: 999px;
+      overflow: hidden;
+      box-shadow: inset 0 2px 5px rgba(0,0,0,0.15);
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0;
+      background: linear-gradient(90deg, #4facfe, #00f2fe);
+      border-radius: inherit;
+      animation: fill var(--duration) forwards;
+      animation-timing-function: linear;
+    }
+
+    /*
+      The progress bar also moves unevenly, matching the car's pacing.
+    */
+    @keyframes fill {
+      0% { width: 0; }
+      8% { width: 4%; }
+      18% { width: 10%; }
+      28% { width: 28%; }
+      42% { width: 38%; }
+      55% { width: 61%; }
+      68% { width: 70%; }
+      82% { width: 88%; }
+      94% { width: 96%; }
+      100% { width: 100%; }
+    }
+
+    @keyframes carBounce {
+      from {
+        transform: translateY(0);
+      }
+      to {
+        transform: translateY(-3px);
+      }
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .status {
+      font-weight: bold;
+      min-height: 24px;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 650px) {
+      .scene {
+        height: 300px;
+      }
+
+      .house {
+        transform: scale(0.75);
+        transform-origin: bottom right;
+        right: 28px;
+      }
+
+      .car-wrap {
+        width: 105px;
+      }
+
+      .car {
+        transform-origin: bottom left;
+        scale: 0.78;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <h1>Where's Qoin?</h1>
+    <p></p>
+
+    <section class="scene" id="scene">
+      <div class="sun"></div>
+      <div class="cloud one"></div>
+      <div class="cloud two"></div>
+
+      <div class="house" id="house" aria-label="house">
+        <div class="window left"></div>
+        <div class="window right"></div>
+        <div class="door"></div>
+      </div>
+
+      <div class="road"></div>
+
+      <div class="car-wrap" id="carWrap" aria-label="moving car">
+        <div class="car">
+          <div class="windshield"></div>
+          <div class="window-car"></div>
+          <div class="wheel back"></div>
+          <div class="wheel front"></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="progress-shell">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+
+    <div class="status" id="status">Progress bar..</div>
+  </main>
+
+  <script>
+    /*
+      Set your loading duration here.
+      This is intentionally not displayed on the page.
+    */
+    const LOADING_DURATION_SECONDS = 1800;
+
+    const scene = document.getElementById("scene");
+    const house = document.getElementById("house");
+    const car = document.getElementById("carWrap");
+    const fill = document.getElementById("progressFill");
+    const statusText = document.getElementById("status");
+
+    function setupAnimation() {
+      document.documentElement.style.setProperty("--duration", `${LOADING_DURATION_SECONDS}s`);
+
+      const sceneRect = scene.getBoundingClientRect();
+      const houseRect = house.getBoundingClientRect();
+      const carRect = car.getBoundingClientRect();
+
+      /*
+        Travel distance is calculated so the car stops just before the house.
+        Increase or decrease the 24 to change how close it gets.
+      */
+      const stopGap = 24;
+      const travelDistance = houseRect.left - sceneRect.left - carRect.width - stopGap;
+
+      car.style.setProperty("--travel-distance", `${travelDistance}px`);
+
+      statusText.textContent = "Progress bar...";
+
+      setTimeout(() => {
+        statusText.textContent = "Arrived!";
+      }, LOADING_DURATION_SECONDS * 1000);
+    }
+
+    setupAnimation();
+
+    window.addEventListener("resize", () => {
+      location.reload();
+    });
+  </script>
+</body>
+</html>
