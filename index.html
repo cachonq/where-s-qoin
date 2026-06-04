@@ -409,6 +409,7 @@
     const statusText = document.getElementById("status");
 
     const adminSun = document.getElementById("adminSun");
+    const adminCloud = document.getElementById("adminCloud");
     const adminPanel = document.getElementById("adminPanel");
     const timerMinutes = document.getElementById("timerMinutes");
     const startButton = document.getElementById("startButton");
@@ -518,9 +519,43 @@
       frame();
     }
 
-    adminSun.addEventListener("click", () => {
-      adminPanel.style.display = adminPanel.style.display === "flex" ? "none" : "flex";
-    });
+    let adminSequenceStep = 0;
+let adminSequenceTimeout = null;
+
+function resetAdminSequence() {
+  adminSequenceStep = 0;
+  clearTimeout(adminSequenceTimeout);
+}
+
+function advanceAdminSequence(expectedStep) {
+  clearTimeout(adminSequenceTimeout);
+
+  if (adminSequenceStep === expectedStep) {
+    adminSequenceStep++;
+
+    if (adminSequenceStep === 3) {
+      adminPanel.style.display = "flex";
+      resetAdminSequence();
+      return;
+    }
+
+    adminSequenceTimeout = setTimeout(resetAdminSequence, 5000);
+  } else {
+    resetAdminSequence();
+  }
+}
+
+adminSun.addEventListener("click", () => {
+  advanceAdminSequence(0);
+});
+
+house.addEventListener("click", () => {
+  advanceAdminSequence(1);
+});
+
+adminCloud.addEventListener("click", () => {
+  advanceAdminSequence(2);
+});
 
     hideAdminButton.addEventListener("click", () => {
       adminPanel.style.display = "none";
