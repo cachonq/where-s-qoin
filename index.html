@@ -339,7 +339,7 @@
     <p>To help guildies have an idea when raid will start</p>
 
   <section class="scene" id="scene">
-  <div class="sun" id="adminSun" aria-label="sun"></div>
+  <div class="sun" id="adminSun" aria-label="sun" onclick="qoinSunSecretClick()"></div>
   <div class="cloud one"></div>
   <div class="cloud two"></div>
 
@@ -380,6 +380,28 @@
     </div>
   </main>
 
+  <script>
+  let qoinSunClickCount = 0;
+  let qoinSunClickTimeout = null;
+
+  function qoinSunSecretClick() {
+    qoinSunClickCount++;
+
+    clearTimeout(qoinSunClickTimeout);
+
+    if (qoinSunClickCount >= 4) {
+      const adminPanel = document.getElementById("adminPanel");
+      adminPanel.style.display = "flex";
+      qoinSunClickCount = 0;
+      return;
+    }
+
+    qoinSunClickTimeout = setTimeout(() => {
+      qoinSunClickCount = 0;
+    }, 10000);
+  }
+</script>
+  
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
     import {
@@ -524,24 +546,7 @@
       frame();
     }
 
-   let sunClickCount = 0;
-let sunClickTimeout = null;
-
-adminSun.addEventListener("click", () => {
-  sunClickCount++;
-
-  clearTimeout(sunClickTimeout);
-
-  if (sunClickCount >= 4) {
-    adminPanel.style.display = "flex";
-    sunClickCount = 0;
-    return;
-  }
-
-  sunClickTimeout = setTimeout(() => {
-    sunClickCount = 0;
-  }, 3000);
-});
+  
     hideAdminButton.addEventListener("click", () => {
       adminPanel.style.display = "none";
     });
