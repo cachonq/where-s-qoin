@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Where's Qoin?</title>
+
   <style>
     :root {
       --sky: #bfe9ff;
@@ -65,6 +66,7 @@
       border-radius: 50%;
       background: #ffd166;
       box-shadow: 0 0 35px rgba(255, 209, 102, 0.8);
+      cursor: pointer;
     }
 
     .cloud {
@@ -306,7 +308,6 @@
       margin-top: 10px;
     }
 
-    .admin-login,
     .admin-panel {
       margin-top: 18px;
       display: none;
@@ -316,16 +317,13 @@
       flex-wrap: wrap;
     }
 
-    .admin-login {
-      display: flex;
-    }
-
-    .admin-login input {
+    .admin-panel input {
       padding: 11px 14px;
       border: 1px solid #ccc;
       border-radius: 999px;
       font-size: 1rem;
-      min-width: 220px;
+      width: 120px;
+      text-align: center;
     }
 
     .admin-button {
@@ -386,13 +384,14 @@
     }
   </style>
 </head>
+
 <body>
   <main class="page">
     <h1>Where's Qoin?</h1>
     <p>To help guildies have an idea when raid will start</p>
 
     <section class="scene" id="scene">
-      <div class="sun"></div>
+      <div class="sun" id="adminSun" aria-label="sun"></div>
       <div class="cloud one"></div>
       <div class="cloud two"></div>
 
@@ -420,18 +419,20 @@
 
     <div class="status" id="status">Waiting to start...</div>
 
-    <div class="admin-login" id="adminLogin">
-      <input id="adminEmail" type="email" placeholder="Admin email" autocomplete="username" />
-      <input id="adminPassword" type="password" placeholder="Password" autocomplete="current-password" />
-      <button class="admin-button" id="loginButton">Admin Login</button>
-      <div class="admin-message" id="adminMessage"></div>
-    </div>
-
     <div class="admin-panel" id="adminPanel">
+      <input
+        id="timerMinutes"
+        type="number"
+        min="1"
+        value="10"
+        placeholder="Minutes"
+      />
+
       <button class="admin-button" id="startButton">Start</button>
       <button class="admin-button secondary" id="finishButton">Finish</button>
       <button class="admin-button danger" id="resetButton">Reset</button>
-      <button class="admin-button secondary" id="logoutButton">Logout</button>
+      <button class="admin-button secondary" id="hideAdminButton">Hide</button>
+
       <div class="admin-message" id="adminStatus"></div>
     </div>
   </main>
@@ -442,37 +443,24 @@
       getDatabase,
       ref,
       onValue,
-      runTransaction,
       set,
       remove
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
-    import {
-      getAuth,
-      signInWithEmailAndPassword,
-      signOut,
-      onAuthStateChanged
-    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-
     const firebaseConfig = {
-      apiKey: "AIzaSyAS89nlEywPcaAaquVVYD5Y7e3-iIV2uPo",
+      apiKey: "AIzaSyAS89nLEywPcaAaquVVYD5Y7e3-iTV2uPo",
       authDomain: "where-s-qoin.firebaseapp.com",
       databaseURL: "https://where-s-qoin-default-rtdb.firebaseio.com",
       projectId: "where-s-qoin",
       storageBucket: "where-s-qoin.firebasestorage.app",
       messagingSenderId: "770113955571",
       appId: "1:770113955571:web:2c6706ce3798dca514b986"
-};
+    };
 
-    /*
-    Congrats you are smart and found the source of how this works. Please keep it to yourself as I created this to mentally help people with the wait. Thank you :) -Qoin
-    */
-    const LOADING_DURATION_SECONDS = 600; /* Congrats you are smart and found the source of how this works. Please keep it to yourself as I created this to mentally help people with the wait. Thank you :) -Qoin */
-    const ADMIN_UID = "xvZTNCvAVqay3wBQInfPp4Wv6A43";
+    const DEFAULT_DURATION_SECONDS = 600;
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    const auth = getAuth(app);
 
     const progressRef = ref(db, "qoinProgress");
     const offsetRef = ref(db, ".info/serverTimeOffset");
@@ -483,18 +471,16 @@
     const fill = document.getElementById("progressFill");
     const statusText = document.getElementById("status");
 
-    const adminLogin = document.getElementById("adminLogin");
+    const adminSun = document.getElementById("adminSun");
     const adminPanel = document.getElementById("adminPanel");
-    const adminEmail = document.getElementById("adminEmail");
-    const adminPassword = document.getElementById("adminPassword");
-    const loginButton = document.getElementById("loginButton");
-    const logoutButton = document.getElementById("logoutButton");
+    const timerMinutes = document.getElementById("timerMinutes");
     const startButton = document.getElementById("startButton");
     const finishButton = document.getElementById("finishButton");
     const resetButton = document.getElementById("resetButton");
-    const adminMessage = document.getElementById("adminMessage");
+    const hideAdminButton = document.getElementById("hideAdminButton");
     const adminStatus = document.getElementById("adminStatus");
 
+    let loadingDurationSeconds = DEFAULT_DURATION_SECONDS;
     let serverTimeOffset = 0;
     let startedAt = null;
     let animationFrameId = null;
@@ -561,7 +547,7 @@
     }
 
     function formatEta(startTime) {
-      const etaTime = new Date(startTime + LOADING_DURATION_SECONDS * 1000);
+      const etaTime = new Date(startTime + loadingDurationSeconds * 1000);
 
       return etaTime.toLocaleTimeString("en-US", {
         timeZone: "America/New_York",
@@ -578,7 +564,7 @@
         if (!startedAt) return;
 
         const elapsedSeconds = (serverNow() - startedAt) / 1000;
-        const rawProgress = elapsedSeconds / LOADING_DURATION_SECONDS;
+        const rawProgress = elapsedSeconds / loadingDurationSeconds;
 
         updateVisuals(rawProgress);
 
@@ -595,25 +581,12 @@
       frame();
     }
 
-    loginButton.addEventListener("click", async () => {
-      adminMessage.textContent = "";
-      loginButton.disabled = true;
-      loginButton.textContent = "Logging in...";
-
-      try {
-        await signInWithEmailAndPassword(auth, adminEmail.value, adminPassword.value);
-        adminPassword.value = "";
-      } catch (error) {
-        adminMessage.textContent = `${error.code}: ${error.message}`;
-        console.error(error);
-      } finally {
-        loginButton.disabled = false;
-        loginButton.textContent = "Admin Login";
-      }
+    adminSun.addEventListener("click", () => {
+      adminPanel.style.display = adminPanel.style.display === "flex" ? "none" : "flex";
     });
 
-    logoutButton.addEventListener("click", async () => {
-      await signOut(auth);
+    hideAdminButton.addEventListener("click", () => {
+      adminPanel.style.display = "none";
     });
 
     startButton.addEventListener("click", async () => {
@@ -621,19 +594,27 @@
       startButton.disabled = true;
       startButton.textContent = "Starting...";
 
-      try {
-        await runTransaction(progressRef, (currentValue) => {
-          if (currentValue && currentValue.startedAt) {
-            return currentValue;
-          }
+      const minutes = Number(timerMinutes.value);
 
-          return {
-            startedAt: serverNow(),
-            finishedAt: null
-          };
+      if (!minutes || minutes < 1) {
+        adminStatus.textContent = "Enter a valid number of minutes.";
+        startButton.disabled = false;
+        startButton.textContent = "Start";
+        return;
+      }
+
+      loadingDurationSeconds = minutes * 60;
+
+      try {
+        await set(progressRef, {
+          startedAt: serverNow(),
+          finishedAt: null,
+          durationSeconds: loadingDurationSeconds
         });
-        adminStatus.textContent = "Started.";
+
+        adminStatus.textContent = `Started ${minutes} minute timer.`;
       } catch (error) {
+        console.error(error);
         adminStatus.textContent = "Start failed. Check Firebase rules.";
       } finally {
         startButton.disabled = false;
@@ -644,13 +625,21 @@
     finishButton.addEventListener("click", async () => {
       adminStatus.textContent = "";
 
+      const minutes = Number(timerMinutes.value);
+      loadingDurationSeconds = minutes && minutes > 0
+        ? minutes * 60
+        : loadingDurationSeconds;
+
       try {
         await set(progressRef, {
-          startedAt: serverNow() - LOADING_DURATION_SECONDS * 1000,
-          finishedAt: serverNow()
+          startedAt: serverNow() - loadingDurationSeconds * 1000,
+          finishedAt: serverNow(),
+          durationSeconds: loadingDurationSeconds
         });
+
         adminStatus.textContent = "Finished.";
       } catch (error) {
+        console.error(error);
         adminStatus.textContent = "Finish failed. Check Firebase rules.";
       }
     });
@@ -662,20 +651,8 @@
         await remove(progressRef);
         adminStatus.textContent = "Reset.";
       } catch (error) {
+        console.error(error);
         adminStatus.textContent = "Reset failed. Check Firebase rules.";
-      }
-    });
-
-    onAuthStateChanged(auth, (user) => {
-      const isAdmin = user && user.uid === ADMIN_UID;
-
-      adminLogin.style.display = isAdmin ? "none" : "flex";
-      adminPanel.style.display = isAdmin ? "flex" : "none";
-
-      if (user && !isAdmin) {
-        adminMessage.textContent = "You are signed in, but this account is not an admin.";
-      } else {
-        adminMessage.textContent = "";
       }
     });
 
@@ -684,19 +661,27 @@
 
       if (!data || !data.startedAt) {
         startedAt = null;
+        loadingDurationSeconds = DEFAULT_DURATION_SECONDS;
+        timerMinutes.value = "10";
         statusText.textContent = "Waiting to start...";
         updateVisuals(0);
         return;
       }
 
       startedAt = data.startedAt;
+
+      if (data.durationSeconds) {
+        loadingDurationSeconds = data.durationSeconds;
+        timerMinutes.value = String(Math.round(data.durationSeconds / 60));
+      }
+
       startSharedAnimation();
     });
 
     window.addEventListener("resize", () => {
       if (startedAt) {
         const elapsedSeconds = (serverNow() - startedAt) / 1000;
-        updateVisuals(elapsedSeconds / LOADING_DURATION_SECONDS);
+        updateVisuals(elapsedSeconds / loadingDurationSeconds);
       }
     });
   </script>
