@@ -307,27 +307,23 @@
       color: #666;
       min-height: 20px;
     }
+@media (max-width: 650px) {
+  .scene {
+    height: 300px;
+  }
 
-    @media (max-width: 650px) {
-      .scene {
-        height: 300px;
-      }
+  .house {
+    transform: scale(0.75);
+    transform-origin: bottom right;
+    right: 28px;
+  }
 
-      .house {
-        transform: scale(0.75);
-        transform-origin: bottom right;
-        right: 28px;
-      }
-
-      .car-wrap {
-        width: 105px;
-      }
-
-      .car {
-        transform-origin: bottom left;
-        scale: 0.78;
-      }
-    }
+  .car-wrap {
+    width: 140px;
+    height: 100px;
+    bottom: 78px;
+  }
+}
   </style>
 </head>
 
