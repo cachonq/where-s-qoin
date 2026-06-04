@@ -340,7 +340,7 @@
 
   <section class="scene" id="scene">
   <div class="sun" id="adminSun" aria-label="sun"></div>
-  <div class="cloud one" id="adminCloud" aria-label="cloud"></div>
+  <div class="cloud one"></div>
   <div class="cloud two"></div>
 
   <div class="house" id="house" aria-label="house">
@@ -415,7 +415,6 @@
     const statusText = document.getElementById("status");
 
     const adminSun = document.getElementById("adminSun");
-    const adminCloud = document.getElementById("adminCloud");
     const adminPanel = document.getElementById("adminPanel");
     const timerMinutes = document.getElementById("timerMinutes");
     const startButton = document.getElementById("startButton");
@@ -525,44 +524,24 @@
       frame();
     }
 
-    let adminSequenceStep = 0;
-let adminSequenceTimeout = null;
-
-function resetAdminSequence() {
-  adminSequenceStep = 0;
-  clearTimeout(adminSequenceTimeout);
-}
-
-function advanceAdminSequence(expectedStep) {
-  clearTimeout(adminSequenceTimeout);
-
-  if (adminSequenceStep === expectedStep) {
-    adminSequenceStep++;
-
-    if (adminSequenceStep === 3) {
-      adminPanel.style.display = "flex";
-      resetAdminSequence();
-      return;
-    }
-
-    adminSequenceTimeout = setTimeout(resetAdminSequence, 5000);
-  } else {
-    resetAdminSequence();
-  }
-}
+   let sunClickCount = 0;
+let sunClickTimeout = null;
 
 adminSun.addEventListener("click", () => {
-  advanceAdminSequence(0);
-});
+  sunClickCount++;
 
-house.addEventListener("click", () => {
-  advanceAdminSequence(1);
-});
+  clearTimeout(sunClickTimeout);
 
-adminCloud.addEventListener("click", () => {
-  advanceAdminSequence(2);
-});
+  if (sunClickCount >= 4) {
+    adminPanel.style.display = "flex";
+    sunClickCount = 0;
+    return;
+  }
 
+  sunClickTimeout = setTimeout(() => {
+    sunClickCount = 0;
+  }, 3000);
+});
     hideAdminButton.addEventListener("click", () => {
       adminPanel.style.display = "none";
     });
