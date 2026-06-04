@@ -74,6 +74,15 @@
       box-shadow: 0 0 35px rgba(255, 209, 102, 0.8);
       cursor: pointer;
     }
+    
+    .sun {
+      z-index: 10;
+      pointer-events: auto;
+    }  
+    .cloud,
+    .cloud * {
+        pointer-events: none;
+    }
 
     .cloud {
       position: absolute;
