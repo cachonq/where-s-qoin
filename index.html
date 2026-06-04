@@ -273,6 +273,7 @@
   margin-bottom: 6px;
 }
 
+    .admin-password-panel,
     .admin-panel {
       margin-top: 18px;
       display: none;
@@ -282,13 +283,21 @@
       flex-wrap: wrap;
     }
 
-    .admin-panel input {
+    .admin-panel input,
+    .admin-password-panel input {
       padding: 11px 14px;
       border: 1px solid #ccc;
       border-radius: 999px;
       font-size: 1rem;
-      width: 120px;
       text-align: center;
+    }
+
+    .admin-panel input {
+      width: 120px;
+    }
+
+    .admin-password-panel input {
+      width: 220px;
     }
 
     .admin-button {
@@ -324,6 +333,13 @@
       width: 100%;
       font-size: 0.9rem;
       color: #666;
+      min-height: 20px;
+    }
+
+    .admin-password-message {
+      width: 100%;
+      font-size: 0.9rem;
+      color: #b3261e;
       min-height: 20px;
     }
 @media (max-width: 650px) {
@@ -375,11 +391,24 @@
 
     <div class="status" id="status">Waiting to start...</div>
 
-    <div class="admin-panel" id="adminPanel">
-  <div class="admin-warning">
-    If you found this, please do not change it. This is meant for Qoin only.
-  </div>
+    <div class="admin-password-panel" id="adminPasswordPanel">
+      <div class="admin-warning">
+        If you found this, please do not change it. This is meant for Qoin only.
+      </div>
 
+      <input
+        id="adminPasswordInput"
+        type="password"
+        placeholder="Admin password"
+      />
+
+      <button class="admin-button" id="adminPasswordButton">Unlock</button>
+      <button class="admin-button secondary" id="adminPasswordCancelButton">Cancel</button>
+
+      <div class="admin-password-message" id="adminPasswordMessage"></div>
+    </div>
+
+    <div class="admin-panel" id="adminPanel">
   <input
     id="timerMinutes"
     type="number"
@@ -398,6 +427,8 @@
   </main>
 
   <script>
+  const ADMIN_PASSWORD = "qoin123";
+
   let qoinSunClickCount = 0;
   let qoinSunClickTimeout = null;
 
@@ -407,8 +438,17 @@
     clearTimeout(qoinSunClickTimeout);
 
     if (qoinSunClickCount >= 4) {
+      const adminPasswordPanel = document.getElementById("adminPasswordPanel");
       const adminPanel = document.getElementById("adminPanel");
-      adminPanel.style.display = "flex";
+      const adminPasswordInput = document.getElementById("adminPasswordInput");
+      const adminPasswordMessage = document.getElementById("adminPasswordMessage");
+
+      adminPanel.style.display = "none";
+      adminPasswordPanel.style.display = "flex";
+      adminPasswordInput.value = "";
+      adminPasswordMessage.textContent = "";
+      adminPasswordInput.focus();
+
       qoinSunClickCount = 0;
       return;
     }
@@ -417,6 +457,42 @@
       qoinSunClickCount = 0;
     }, 10000);
   }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const adminPasswordPanel = document.getElementById("adminPasswordPanel");
+    const adminPanel = document.getElementById("adminPanel");
+    const adminPasswordInput = document.getElementById("adminPasswordInput");
+    const adminPasswordButton = document.getElementById("adminPasswordButton");
+    const adminPasswordCancelButton = document.getElementById("adminPasswordCancelButton");
+    const adminPasswordMessage = document.getElementById("adminPasswordMessage");
+
+    function checkAdminPassword() {
+      if (adminPasswordInput.value === ADMIN_PASSWORD) {
+        adminPasswordPanel.style.display = "none";
+        adminPanel.style.display = "flex";
+        adminPasswordInput.value = "";
+        adminPasswordMessage.textContent = "";
+      } else {
+        adminPasswordMessage.textContent = "Incorrect password.";
+        adminPasswordInput.value = "";
+        adminPasswordInput.focus();
+      }
+    }
+
+    adminPasswordButton.addEventListener("click", checkAdminPassword);
+
+    adminPasswordInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        checkAdminPassword();
+      }
+    });
+
+    adminPasswordCancelButton.addEventListener("click", () => {
+      adminPasswordPanel.style.display = "none";
+      adminPasswordInput.value = "";
+      adminPasswordMessage.textContent = "";
+    });
+  });
 </script>
   
   <script type="module">
@@ -566,6 +642,14 @@
   
     hideAdminButton.addEventListener("click", () => {
       adminPanel.style.display = "none";
+
+      const adminPasswordPanel = document.getElementById("adminPasswordPanel");
+      const adminPasswordInput = document.getElementById("adminPasswordInput");
+      const adminPasswordMessage = document.getElementById("adminPasswordMessage");
+
+      adminPasswordPanel.style.display = "none";
+      adminPasswordInput.value = "";
+      adminPasswordMessage.textContent = "";
     });
 
     startButton.addEventListener("click", async () => {
