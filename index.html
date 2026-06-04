@@ -604,7 +604,8 @@
         await signInWithEmailAndPassword(auth, adminEmail.value, adminPassword.value);
         adminPassword.value = "";
       } catch (error) {
-        adminMessage.textContent = "Login failed. Check the email/password.";
+        adminMessage.textContent = `${error.code}: ${error.message}`;
+        console.error(error);
       } finally {
         loginButton.disabled = false;
         loginButton.textContent = "Admin Login";
